@@ -1,14 +1,18 @@
 package com.plagiarismcheckerplus.sdk;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 
 class PlagiarismCheckerPlusTest {
@@ -55,11 +59,42 @@ class PlagiarismCheckerPlusTest {
     }
 
     @Test
-    void errorsExposeStatusAndCode() {
-        FakeTransport t = new FakeTransport().add(403, "{\"error\":{\"code\":\"plan_required\",\"message\":\"Paid plan needed\"}}", Map.of());
-        ApiException e = assertThrows(ApiException.class, () -> client(t).getAccount());
-        assertEquals(403, e.getStatus());
-        assertEquals(ApiException.PLAN_REQUIRED, e.getErrorCode());
+    void errorsExposeStatusCodeAndDetails() {
+        FakeTransport t = new FakeTransport().add(402,
+                "{\"error\":{\"code\":\"trial_exhausted\",\"message\":\"Trial used up\",\"billingUrl\":\"https://app.plagiarismcheckerplus.com/developers/billing\"}}",
+                Map.of());
+        ApiException e = assertThrows(ApiException.class, () -> client(t).createScan("text", List.of("plagiarism"), null));
+        assertEquals(402, e.getStatus());
+        assertEquals(ApiException.TRIAL_EXHAUSTED, e.getErrorCode());
+        assertEquals("https://app.plagiarismcheckerplus.com/developers/billing", e.getDetails().get("billingUrl"));
+        assertEquals("key_cap_reached", ApiException.KEY_CAP_REACHED);
+    }
+
+    private static String sign(String secret, long t, String body) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : mac.doFinal((t + "." + body).getBytes(StandardCharsets.UTF_8))) hex.append(String.format("%02x", b));
+        return hex.toString();
+    }
+
+    @Test
+    void verifiesWebhookSignatures() throws Exception {
+        String secret = "whsec_test_secret";
+        String body = "{\"id\":\"evt_1\",\"type\":\"scan.completed\",\"data\":{}}";
+        byte[] raw = body.getBytes(StandardCharsets.UTF_8);
+        long ts = 1_800_000_000L;
+        String header = "t=" + ts + ",v1=" + sign(secret, ts, body);
+        assertEquals("PCP-Signature", Webhook.SIGNATURE_HEADER);
+        assertTrue(Webhook.verifySignature(secret, header, raw, 300, ts + 10));
+        assertTrue(Webhook.verifySignature(secret, "t=" + ts + ",v1=" + sign("other", ts, body) + ",v1=" + sign(secret, ts, body), raw, 300, ts));
+        assertFalse(Webhook.verifySignature("whsec_wrong", header, raw, 300, ts));
+        assertFalse(Webhook.verifySignature(secret, header, (body + " ").getBytes(StandardCharsets.UTF_8), 300, ts));
+        assertFalse(Webhook.verifySignature(secret, header, raw, 300, ts + 301));
+        assertFalse(Webhook.verifySignature(secret, header, raw, 300, ts - 301));
+        assertTrue(Webhook.verifySignature(secret, header, raw, 600, ts + 500));
+        assertFalse(Webhook.verifySignature(secret, "t=" + ts, raw, 300, ts));
+        assertFalse(Webhook.verifySignature(secret, null, raw, 300, ts));
     }
 
     @Test

@@ -21,7 +21,7 @@ import java.util.function.DoubleConsumer;
  */
 public final class PlagiarismCheckerPlus {
     public static final String DEFAULT_BASE_URL = "https://app.plagiarismcheckerplus.com/api/public/v1";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.1.0";
 
     private final String apiKey;
     private final String baseUrl;
@@ -66,6 +66,7 @@ public final class PlagiarismCheckerPlus {
         return request("GET", "/scans", q.length() > 0 ? q.toString() : null, null);
     }
 
+    /** Plan, word balances, free API trial ("trial"), "balances", "autoTopup" and this key's "key" mode and cap. */
     public Map<String, Object> getAccount() {
         return request("GET", "/account", null, null);
     }
