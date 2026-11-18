@@ -10,8 +10,8 @@
   <packaging>jar</packaging>
 
   <name>Plagiarism Checker Plus SDK</name>
-  <description>Official Java client for the Plagiarism Checker Plus API: plagiarism checks with sources and AI writing detection.</description>
-  <url>https://plagiarismcheckerplus.com</url>
+  <description>Official Java client for the Plagiarism Checker Plus API: plagiarism checker API with linked sources and AI detector API with a per-sentence AI likelihood.</description>
+  <url>https://plagiarismcheckerplus.com/integrations/api</url>
 
   <licenses>
     <license>
@@ -31,8 +31,14 @@
 
   <scm>
     <connection>scm:git:https://github.com/pcp-tech/plagiarism-checker-plus-java.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/pcp-tech/plagiarism-checker-plus-java.git</developerConnection>
     <url>https://github.com/pcp-tech/plagiarism-checker-plus-java</url>
   </scm>
+
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/pcp-tech/plagiarism-checker-plus-java/issues</url>
+  </issueManagement>
 
   <properties>
     <maven.compiler.release>11</maven.compiler.release>
@@ -57,4 +63,62 @@
       </plugin>
     </plugins>
   </build>
+
+  <!--
+    Maven Central release: mvn -P release deploy
+    Needs a Central Portal user token in ~/.m2/settings.xml (server id "central")
+    and a GPG key. Sources and javadoc jars and signatures are required by Central.
+  -->
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.10.1</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals><goal>jar</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.7</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.7.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
